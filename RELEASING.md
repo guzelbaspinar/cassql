@@ -1,0 +1,38 @@
+# cassql — release checklist (fetch-kit model)
+
+Package: **cassql** (unscoped, public). GitHub: **guzelbaspinar/cassql**. Workflow: `.github/workflows/publish.yml`.
+
+## One-time: first npm version (before Trusted Publisher)
+
+Trusted Publisher on npmjs.com requires the package to exist.
+
+```bash
+npm login
+npm run verify
+npm publish --access public
+npm view cassql version   # expect 0.1.0
+```
+
+## One-time: npm Trusted Publisher (OIDC, no `NPM_TOKEN`)
+
+npmjs.com → **cassql** → Settings → **Trusted Publisher** → GitHub Actions:
+
+| Field | Value |
+|--------|--------|
+| Organization or user | `guzelbaspinar` |
+| Repository | `cassql` |
+| Workflow filename | `publish.yml` |
+
+Use the same **stage publish** / approval settings as `@guzelbaspinar/fetch-kit` (workflow runs `npm stage publish --access public`).
+
+Do **not** add `NPM_TOKEN` to GitHub Secrets for this repo.
+
+## Routine release (0.1.1+)
+
+1. Bump `version` in `package.json` and `package-lock.json`.
+2. Update `CHANGELOG.md`.
+3. Open a PR to `main` → wait for **CI** (`test`, `coverage`).
+4. Merge, then create a GitHub **Release** with tag `vX.Y.Z` matching `package.json`.
+5. **Publish** workflow stages to npm → approve on npmjs.com or `npm stage approve` (2FA).
+
+Emergency: **Actions → Publish → Run workflow** (`workflow_dispatch`).
