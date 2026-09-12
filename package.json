@@ -1,0 +1,79 @@
+{
+  "name": "cassql",
+  "version": "0.1.0",
+  "description": "Secure, type-friendly, ORM-style Cassandra (CQL) query library for CJS, ESM, and TypeScript.",
+  "keywords": [
+    "cassandra",
+    "cql",
+    "orm",
+    "query-builder",
+    "database",
+    "datastax",
+    "scylladb",
+    "typescript"
+  ],
+  "license": "MIT",
+  "author": "guzelbaspinar",
+  "homepage": "https://github.com/guzelbaspinar/cassql#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/guzelbaspinar/cassql.git"
+  },
+  "bugs": {
+    "url": "https://github.com/guzelbaspinar/cassql/issues"
+  },
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "sideEffects": false,
+  "scripts": {
+    "clean": "rimraf dist coverage",
+    "build": "npm run clean && tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "tsc --noEmit -p tsconfig.json",
+    "typecheck:cjs": "node --input-type=commonjs -e \"const m = require('./dist/index.cjs'); if (!m.Model || !m.CassandraClient) throw new Error('CJS export shape broken');\"",
+    "typecheck:esm": "node --input-type=module -e \"import('./dist/index.js').then(m => { if (!m.Model || !m.CassandraClient) throw new Error('ESM export shape broken'); })\"",
+    "verify": "npm run build && npm run typecheck:cjs && npm run typecheck:esm && npm run test:coverage",
+    "prepublishOnly": "npm run verify"
+  },
+  "peerDependencies": {
+    "cassandra-driver": "^4.7.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@vitest/coverage-v8": "^2.1.9",
+    "cassandra-driver": "^4.7.2",
+    "rimraf": "^6.0.1",
+    "tsup": "^8.3.0",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  }
+}

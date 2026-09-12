@@ -1,0 +1,82 @@
+name: Publish
+
+# Publishes only from a published GitHub Release (which points at a tag/commit
+# on main). Combined with branch protection requiring CI to pass before
+# merging to main, this guarantees CI has succeeded before publish runs.
+# workflow_dispatch is available for manual/emergency publishes.
+on:
+  release:
+    types: [published]
+  workflow_dispatch: {}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PKG_NAME: cassql
+    permissions:
+      contents: read
+      id-token: write # required for npm OIDC trusted publishing; no NPM_TOKEN secret
+    concurrency:
+      group: npm-publish
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v6
+
+      # Do not pass registry-url to setup-node: it writes _authToken=${NODE_AUTH_TOKEN},
+      # which prevents npm from using the Trusted Publisher OIDC exchange (E401/E404).
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22.14.0"
+          cache: "npm"
+
+      - name: Prepare npm for Trusted Publishing
+        run: |
+          npm install -g npm@11.15.0
+          npm --version
+          npm config set registry https://registry.npmjs.org
+          if [ -n "${NPM_CONFIG_USERCONFIG:-}" ] && [ -f "$NPM_CONFIG_USERCONFIG" ]; then
+            sed -i '/:_authToken=/d' "$NPM_CONFIG_USERCONFIG" || true
+          fi
+          unset NODE_AUTH_TOKEN
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify package.json version matches tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "Tag ($TAG_VERSION) does not match package.json version ($PKG_VERSION)."
+            exit 1
+          fi
+
+      - name: Skip if this version is already released on npm
+        id: npm_version
+        run: |
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          echo "version=$PKG_VERSION" >> "$GITHUB_OUTPUT"
+          if npm view "${PKG_NAME}@${PKG_VERSION}" version 2>/dev/null | grep -qx "$PKG_VERSION"; then
+            echo "already_published=true" >> "$GITHUB_OUTPUT"
+            echo "Version ${PKG_VERSION} is already public on npm; skipping stage publish."
+          else
+            echo "already_published=false" >> "$GITHUB_OUTPUT"
+            echo "Version ${PKG_VERSION} is not public yet; will stage publish."
+          fi
+
+      # OIDC supports npm stage publish only when Trusted Publisher allows it (direct publish off).
+      # Approve on npmjs.com or locally: npm stage approve (requires 2FA; not available via OIDC).
+      - name: Stage publish to npm (OIDC, tokenless)
+        if: steps.npm_version.outputs.already_published != 'true'
+        run: npm stage publish --access public
+
+      - name: Staged release reminder
+        if: steps.npm_version.outputs.already_published != 'true'
+        run: |
+          PKG_VERSION="${{ steps.npm_version.outputs.version }}"
+          echo "Staged ${PKG_NAME}@${PKG_VERSION}. Approve on https://www.npmjs.com/package/${PKG_NAME} or run locally: npm stage approve (2FA)."
+          npm stage list 2>/dev/null || true
