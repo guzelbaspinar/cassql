@@ -31,11 +31,22 @@ Use the same **stage publish** / approval settings as `@guzelbaspinar/fetch-kit`
 
 Do **not** add `NPM_TOKEN` to GitHub Secrets for this repo.
 
+## GitHub: `main` ruleset (same as fetch-kit)
+
+Repository **Rules → Protect main** (ruleset):
+
+- PR required (0 approvals; unattributed-change rule on)
+- Required checks: `test (20.x)`, `test (22.x)`, `coverage` (strict / up to date)
+- Block branch deletion, non-fast-forward pushes, direct updates without PR
+- Repository admin bypass for your user (emergency only)
+
+Classic branch protection was removed in favor of this ruleset.
+
 ## Routine release (0.1.1+)
 
 1. Bump `version` in `package.json` and `package-lock.json`.
 2. Update `CHANGELOG.md`.
-3. Open a PR to `main` → wait for **CI** (`test`, `coverage`).
+3. Open a PR to `main` → wait for **CI** (`test (20.x)`, `test (22.x)`, `coverage`).
 4. Merge, then create a GitHub **Release** with tag `vX.Y.Z` matching `package.json`.
 5. **Publish** workflow stages to npm → approve on npmjs.com or `npm stage approve` (2FA).
 
