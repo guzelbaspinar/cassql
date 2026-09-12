@@ -1,6 +1,8 @@
 # cassql — release checklist (fetch-kit model)
 
-Package: **cassql** (unscoped, public). GitHub: **guzelbaspinar/cassql**. Workflow: `.github/workflows/publish.yml`.
+Package: **`@guzelbaspinar/cassql`** (scoped, public). GitHub: **guzelbaspinar/cassql**. Workflow: `.github/workflows/publish.yml`.
+
+The unscoped name `cassql` is blocked by npm (too similar to `mssql` / `casual`); use the scoped name above.
 
 ## One-time: first npm version (before Trusted Publisher)
 
@@ -10,12 +12,12 @@ Trusted Publisher on npmjs.com requires the package to exist.
 npm login
 npm run verify
 npm publish --access public
-npm view cassql version   # expect 0.1.0
+npm view @guzelbaspinar/cassql version   # expect 0.1.0
 ```
 
 ## One-time: npm Trusted Publisher (OIDC, no `NPM_TOKEN`)
 
-npmjs.com → **cassql** → Settings → **Trusted Publisher** → GitHub Actions:
+npmjs.com → **@guzelbaspinar/cassql** → Settings → **Trusted Publisher** → GitHub Actions:
 
 | Field | Value |
 |--------|--------|

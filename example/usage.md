@@ -7,7 +7,7 @@ Reference copy-paste snippets. You do not need to run this file. For connection 
 ## Setup
 
 ```ts
-import { CassandraClient, Model } from "cassql";
+import { CassandraClient, Model } from "@guzelbaspinar/cassql";
 
 const cassClient = new CassandraClient(
   { contactPoints: ["127.0.0.1"], localDataCenter: "datacenter1" },
@@ -43,8 +43,8 @@ CREATE TABLE IF NOT EXISTS market.stocks (
 Typed model and queries:
 
 ```ts
-import type { FindResult } from "cassql";
-import { CassandraClient, Model } from "cassql";
+import type { FindResult } from "@guzelbaspinar/cassql";
+import { CassandraClient, Model } from "@guzelbaspinar/cassql";
 
 interface StockRow {
   symbol: string;
@@ -184,7 +184,7 @@ await Stock.delete({ id: 1 }, { ifExists: true });
 ## BATCH
 
 ```ts
-import { Model } from "cassql";
+import { Model } from "@guzelbaspinar/cassql";
 
 const insertStmt = Stock.buildInsert({ symbol: "GARAN" });
 const updateStmt = Items.buildUpdate({ v: 2 }, { id: 1 });
@@ -213,7 +213,7 @@ import {
   buildUpdateQuery,
   buildDeleteQuery,
   buildBatchQuery,
-} from "cassql";
+} from "@guzelbaspinar/cassql";
 
 const { query, params } = buildSelectQuery("market.stocks", { symbol: "GARAN" }, ["symbol"]);
 const countQ = buildCountQuery("market.stocks", { symbol: "GARAN" });
