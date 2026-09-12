@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-03-12
+
+### Changed
+
+- Publish workflow: detect existing npm versions using `package.json` `name` (scoped package).
+- README: npm version and license badges.
+
 ## [0.1.0] - 2026-03-12
 
 ### Added
