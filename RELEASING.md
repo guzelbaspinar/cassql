@@ -27,9 +27,9 @@ npmjs.com → **@guzelbaspinar/cassql** → Settings → **Trusted Publisher** �
 | Repository | `cassql` |
 | Workflow filename | `publish.yml` |
 
-**Allowed actions (cassql):** enable **Allow `npm publish`**. CI runs `npm publish --access public` via OIDC (direct publish; no staging step). fetch-kit still uses stage publish + npm approval.
+**Allowed actions (match fetch-kit):** leave **Allow `npm publish`** unchecked. CI runs `npm stage publish --access public`, then you approve with 2FA on npmjs.com or via `npm stage approve`.
 
-**Publishing access:** align with fetch-kit (**Require two-factor authentication or a granular access token with bypass 2FA enabled**). OIDC trusted publishing is separate from classic tokens.
+**Publishing access:** align with fetch-kit (**Require two-factor authentication or a granular access token with bypass 2FA enabled**).
 
 Do **not** add `NPM_TOKEN` to GitHub Secrets for this repo.
 
@@ -50,6 +50,6 @@ Classic branch protection was removed in favor of this ruleset.
 2. Update `CHANGELOG.md`.
 3. Open a PR to `main` → wait for **CI** (`test (20.x)`, `test (22.x)`, `coverage`).
 4. Merge, then create a GitHub **Release** with tag `vX.Y.Z` matching `package.json`.
-5. **Publish** workflow publishes to npm via OIDC (version is public when the job succeeds).
+5. **Publish** workflow stages to npm → approve on npmjs.com or `npm stage approve` (2FA).
 
 Emergency: **Actions → Publish → Run workflow** (`workflow_dispatch`).

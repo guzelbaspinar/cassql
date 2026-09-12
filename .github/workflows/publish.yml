@@ -62,19 +62,21 @@ jobs:
           echo "version=$PKG_VERSION" >> "$GITHUB_OUTPUT"
           if npm view "${PKG_NAME}@${PKG_VERSION}" version 2>/dev/null | grep -qx "$PKG_VERSION"; then
             echo "already_published=true" >> "$GITHUB_OUTPUT"
-            echo "Version ${PKG_VERSION} is already public on npm; skipping publish."
+            echo "Version ${PKG_VERSION} is already public on npm; skipping stage publish."
           else
             echo "already_published=false" >> "$GITHUB_OUTPUT"
-            echo "Version ${PKG_VERSION} is not public yet; will publish via OIDC."
+            echo "Version ${PKG_VERSION} is not public yet; will stage publish."
           fi
 
-      # Requires Trusted Publisher "Allow npm publish" on npmjs.com (stage publish hits 403 for this package).
-      - name: Publish to npm (OIDC, tokenless)
+      # OIDC supports npm stage publish when Trusted Publisher is configured (Allow npm publish off).
+      # Approve on npmjs.com or locally: npm stage approve (requires 2FA; not available via OIDC).
+      - name: Stage publish to npm (OIDC, tokenless)
         if: steps.npm_version.outputs.already_published != 'true'
-        run: npm publish --access public
+        run: npm stage publish --access public
 
-      - name: Published release reminder
+      - name: Staged release reminder
         if: steps.npm_version.outputs.already_published != 'true'
         run: |
           PKG_VERSION="${{ steps.npm_version.outputs.version }}"
-          echo "Published ${PKG_NAME}@${PKG_VERSION} to https://www.npmjs.com/package/${PKG_NAME}"
+          echo "Staged ${PKG_NAME}@${PKG_VERSION}. Approve on https://www.npmjs.com/package/${PKG_NAME} or run locally: npm stage approve (2FA)."
+          npm stage list 2>/dev/null || true
