@@ -17,6 +17,8 @@ npm view @guzelbaspinar/cassql version   # expect 0.1.0
 
 ## One-time: npm Trusted Publisher (OIDC, no `NPM_TOKEN`)
 
+After **0.1.0** is visible on https://www.npmjs.com/package/@guzelbaspinar/cassql:
+
 npmjs.com → **@guzelbaspinar/cassql** → Settings → **Trusted Publisher** → GitHub Actions:
 
 | Field | Value |
