@@ -27,7 +27,9 @@ npmjs.com → **@guzelbaspinar/cassql** → Settings → **Trusted Publisher** �
 | Repository | `cassql` |
 | Workflow filename | `publish.yml` |
 
-Use the same **stage publish** / approval settings as `@guzelbaspinar/fetch-kit` (workflow runs `npm stage publish --access public`).
+On Trusted Publisher, enable **Allow `npm publish`** (cassql uses direct `npm publish --provenance`; fetch-kit uses `npm stage publish` + approve).
+
+`npm stage publish` currently returns **403** for this package from GitHub OIDC; direct publish is required until npm enables staging for `@guzelbaspinar/cassql`.
 
 Do **not** add `NPM_TOKEN` to GitHub Secrets for this repo.
 
