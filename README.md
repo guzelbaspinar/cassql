@@ -17,7 +17,7 @@ cassql translates them into safe, parameterized CQL.
 ## Installation
 
 ```bash
-npm install cassql cassandra-driver
+npm install @guzelbaspinar/cassql cassandra-driver
 ```
 
 `cassandra-driver` is a **peer dependency**: you choose the version;
@@ -28,7 +28,7 @@ cassql does not pin it to a specific release.
 ### TypeScript / ESM
 
 ```ts
-import { CassandraClient, Model } from "cassql";
+import { CassandraClient, Model } from "@guzelbaspinar/cassql";
 
 const cassClient = new CassandraClient(
   { contactPoints: ["127.0.0.1"], localDataCenter: "datacenter1" },
@@ -43,7 +43,7 @@ const rows = await Stock.find({ symbol: "GARAN" }, ["symbol", "price"]);
 ### CommonJS
 
 ```js
-const { CassandraClient, Model } = require("cassql");
+const { CassandraClient, Model } = require("@guzelbaspinar/cassql");
 
 const cassClient = new CassandraClient({
   contactPoints: ["127.0.0.1"],
@@ -242,7 +242,7 @@ await Stock.delete({ id: 1 }, { ifExists: true });
 ### `BATCH` — atomic and non-atomic multi-statement execution
 
 ```ts
-import { Model } from "cassql";
+import { Model } from "@guzelbaspinar/cassql";
 
 const insertStmt = Stock.buildInsert({ symbol: "GARAN" });
 const updateStmt = OtherModel.buildUpdate({ v: 2 }, { id: 1 });
@@ -279,8 +279,8 @@ const rows = await Stock.raw(
 
 cassql is published with an `exports` map plus `main` / `module` / `types`, so:
 
-- **ESM:** `import { Model } from "cassql"` (`dist/index.js` + `dist/index.d.ts`)
-- **CommonJS:** `const { Model } = require("cassql")` (`dist/index.cjs` + `dist/index.d.cts`)
+- **ESM:** `import { Model } from "@guzelbaspinar/cassql"` (`dist/index.js` + `dist/index.d.ts`)
+- **CommonJS:** `const { Model } = require("@guzelbaspinar/cassql")` (`dist/index.cjs` + `dist/index.d.cts`)
 - **TypeScript:** full types in both setups
 
 ## Development

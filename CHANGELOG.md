@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Initial public release of **cassql**: secure, ORM-style Cassandra (CQL) query builder.
+- Initial public release of **@guzelbaspinar/cassql**: secure, ORM-style Cassandra (CQL) query builder.
 - `Model` API: `find`, `findOne`, `findPage`, `count`, `stream`, `insert`, `insertOrThrow`, `update`, `delete`, `raw`, and batch helpers.
 - Parameterized CQL with strict identifier validation, dual **CJS** / **ESM** / TypeScript builds.
 - GitHub Actions CI (Node 20/22, coverage thresholds) and npm OIDC stage publish workflow.
