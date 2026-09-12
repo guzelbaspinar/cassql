@@ -27,9 +27,11 @@ npmjs.com → **@guzelbaspinar/cassql** → Settings → **Trusted Publisher** �
 | Repository | `cassql` |
 | Workflow filename | `publish.yml` |
 
-On Trusted Publisher, enable **Allow `npm publish`** (cassql uses direct `npm publish --provenance`; fetch-kit uses `npm stage publish` + approve).
+**Allowed actions (match fetch-kit):** leave **Allow `npm publish`** unchecked. `npm stage publish` is always permitted for Trusted Publisher; CI runs `npm stage publish --access public`, then you approve with 2FA.
 
-`npm stage publish` currently returns **403** for this package from GitHub OIDC; direct publish is required until npm enables staging for `@guzelbaspinar/cassql`.
+**Publishing access (this is the usual cassql vs fetch-kit gap):** Package **Settings → Publishing access** → **Require two-factor authentication and disallow tokens** → Update Package Settings. fetch-kit was set up this way; cassql often still allows token publish after the local `0.1.0` upload. OIDC provenance can succeed while `POST .../-/stage/package/...` returns **403** until this matches fetch-kit.
+
+If Publishing access and Trusted Publisher already match fetch-kit and stage still 403s: delete the Trusted Publisher connection on cassql and add it again (npm can leave a stale binding; provenance signing does not prove stage permission).
 
 Do **not** add `NPM_TOKEN` to GitHub Secrets for this repo.
 
