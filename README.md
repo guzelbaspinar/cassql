@@ -1,5 +1,8 @@
 # cassql
 
+[![npm version](https://img.shields.io/npm/v/@guzelbaspinar/cassql.svg)](https://www.npmjs.com/package/@guzelbaspinar/cassql)
+[![license](https://img.shields.io/npm/l/@guzelbaspinar/cassql.svg)](https://github.com/guzelbaspinar/cassql/blob/main/LICENSE)
+
 A secure, ORM-style query library for Cassandra (CQL). You write queries with familiar
 methods (`find`, `insert`, `update`, `delete`, `stream`) and Mongo-style object syntax;
 cassql translates them into safe, parameterized CQL.
