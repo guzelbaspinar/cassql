@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-09-12
+
+### Changed
+
+- Publish workflow restored to **npm stage publish** (fetch-kit model): CI stages releases; approve on npmjs.com or with `npm stage approve` (2FA).
+
 ## [0.1.1] - 2026-03-12
 
 ### Changed
