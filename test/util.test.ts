@@ -38,16 +38,62 @@ describe("buildConditionClauses", () => {
   it("buildWhereClause returns empty string when no predicates", () => {
     expect(buildWhereClause({}, [])).toBe("");
   });
+
+  it("rejects Object.prototype member names used as fake operators instead of silently matching them", () => {
+    expect(() => buildConditionClauses({ symbol: { toString: "whatever" } as any }, [])).toThrow(CassqlUnsupportedError);
+    expect(() => buildConditionClauses({ symbol: { constructor: 1 } as any }, [])).toThrow(CassqlUnsupportedError);
+    expect(() => buildConditionClauses({ symbol: { hasOwnProperty: 1 } as any }, [])).toThrow(CassqlUnsupportedError);
+    // Sanity check: genuinely unknown operators still throw the same way.
+    expect(() => buildConditionClauses({ symbol: { $foo: 1 } as any }, [])).toThrow(CassqlUnsupportedError);
+  });
+
+  it("rejects an $in list beyond the maximum size instead of overflowing the call stack", () => {
+    const bigArray = new Array(2001).fill(1);
+    expect(() => buildConditionClauses({ id: { $in: bigArray } }, [])).toThrow(CassqlValidationError);
+  });
+
+  it("accepts a large $in list within the maximum size using a loop instead of spread", () => {
+    const params: unknown[] = [];
+    const array = new Array(2000).fill(1);
+    const clauses = buildConditionClauses({ id: { $in: array } }, params);
+    expect(clauses[0]).toBe(`id IN (${array.map(() => "?").join(", ")})`);
+    expect(params).toHaveLength(2000);
+  });
+
+  it("rejects a $token.value / $token.columns length mismatch", () => {
+    const bigArray = new Array(2001).fill(1);
+    expect(() =>
+      buildConditionClauses({ $token: { columns: ["id"], op: "$eq", value: bigArray as any } }, [])
+    ).toThrow(CassqlValidationError);
+  });
+
+  it("rejects an oversized $token.value list even when it matches $token.columns in length", () => {
+    const size = 2001;
+    const columns = Array.from({ length: size }, (_, i) => `c${i}`);
+    const value = new Array(size).fill(1);
+    expect(() => buildConditionClauses({ $token: { columns, op: "$eq", value: value as any } }, [])).toThrow(
+      CassqlValidationError
+    );
+  });
 });
 
 describe("buildOrderByClause", () => {
-  it("returns empty for missing or empty orderBy", () => {
+  it("returns empty only for missing orderBy", () => {
     expect(buildOrderByClause()).toBe("");
-    expect(buildOrderByClause([{ column: "", order: "asc" }])).toBe("");
+    expect(buildOrderByClause([])).toBe("");
   });
 
   it("rejects invalid order direction", () => {
     expect(() => buildOrderByClause({ column: "id", order: "up" as "asc" })).toThrow(CassqlValidationError);
+  });
+
+  it("rejects orderBy entries with a missing/empty column instead of silently dropping them", () => {
+    expect(() => buildOrderByClause([{ column: "", order: "asc" }])).toThrow(CassqlValidationError);
+    expect(() => buildOrderByClause([{ column: "date" } as any])).toThrow(CassqlValidationError);
+  });
+
+  it("rejects orderBy entries with a missing order", () => {
+    expect(() => buildOrderByClause([{ order: "asc" } as any])).toThrow(CassqlValidationError);
   });
 });
 

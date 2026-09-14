@@ -24,14 +24,16 @@ export function buildOrderByClause(orderBy?: OrderBy): string {
     clauses = [orderBy];
   }
 
-  const valid = clauses.filter((c) => c && c.column && c.order);
-  if (valid.length === 0) return "";
+  if (clauses.length === 0) return "";
 
-  for (const c of valid) {
+  for (const c of clauses) {
+    if (!c || !c.column || !c.order) {
+      throw new CassqlValidationError(`orderBy entries must have both "column" and "order", got ${JSON.stringify(c)}`);
+    }
     if (c.order !== "asc" && c.order !== "desc") {
       throw new CassqlValidationError(`orderBy.order must be "asc" or "desc", got "${c.order}"`);
     }
   }
 
-  return ` ORDER BY ${valid.map((c) => `${column(c.column, "orderBy column")} ${c.order}`).join(", ")}`;
+  return ` ORDER BY ${clauses.map((c) => `${column(c.column, "orderBy column")} ${c.order}`).join(", ")}`;
 }

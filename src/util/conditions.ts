@@ -1,6 +1,11 @@
 import { column } from "./identifiers";
 import { CassqlUnsupportedError, CassqlValidationError } from "./errors";
 
+// Practical upper bound for `$in` / `$token.value` array sizes. Cassandra itself
+// discourages very large IN lists; this also protects against pushing thousands of
+// elements onto `params` via a spread, which can otherwise overflow the JS call stack.
+const MAX_IN_LIST_SIZE = 2000;
+
 export type Primitive = string | number | boolean | Date | Buffer | bigint | null;
 
 export type ConditionValue =
@@ -28,7 +33,14 @@ export type Conditions = Record<string, ConditionValue> & {
   };
 };
 
-const SIMPLE_OPERATORS: Record<string, string> = {
+// Object.create(null) has no prototype chain, so a lookup like
+// `SIMPLE_OPERATORS[op]` can never accidentally resolve to an inherited
+// `Object.prototype` member (`toString`, `constructor`, `valueOf`, etc.) when
+// `op` happens to collide with one of those names. A plain `{}` literal would
+// let such lookups silently return a truthy function instead of `undefined`,
+// bypassing the "unknown operator throws" guarantee below.
+const SIMPLE_OPERATORS: Record<string, string> = Object.create(null);
+Object.assign(SIMPLE_OPERATORS, {
   $eq: "=",
   $ne: "!=",
   $gt: ">",
@@ -37,7 +49,7 @@ const SIMPLE_OPERATORS: Record<string, string> = {
   $lte: "<=",
   $contains: "CONTAINS",
   $containsKey: "CONTAINS KEY",
-};
+});
 
 /**
  * Builds a list of CQL predicate fragments (e.g. `["price > ?", "symbol = ?"]`) from a
@@ -69,8 +81,13 @@ export function buildConditionClauses(conditions: Conditions, params: unknown[])
           if (!Array.isArray(value) || value.length === 0) {
             throw new CassqlValidationError(`$in operator on "${field}" requires a non-empty array of values`);
           }
+          if (value.length > MAX_IN_LIST_SIZE) {
+            throw new CassqlValidationError(
+              `$in operator on "${field}" exceeds the maximum of ${MAX_IN_LIST_SIZE} values (got ${value.length})`
+            );
+          }
           clauses.push(`${col} IN (${value.map(() => "?").join(", ")})`);
-          params.push(...value);
+          for (const v of value) params.push(v);
           continue;
         }
         const cql = SIMPLE_OPERATORS[op];
@@ -94,13 +111,16 @@ export function buildConditionClauses(conditions: Conditions, params: unknown[])
     if (!Array.isArray(token.value) || token.value.length !== token.columns.length) {
       throw new CassqlValidationError("$token.value must be an array matching $token.columns in length");
     }
+    if (token.value.length > MAX_IN_LIST_SIZE) {
+      throw new CassqlValidationError(`$token.value exceeds the maximum of ${MAX_IN_LIST_SIZE} values`);
+    }
     const cql = SIMPLE_OPERATORS[token.op];
     if (!cql) {
       throw new CassqlUnsupportedError(`Unsupported $token operator "${token.op}"`);
     }
     const cols = token.columns.map((c) => column(c, "$token column")).join(", ");
     clauses.push(`TOKEN(${cols}) ${cql} TOKEN(${token.value.map(() => "?").join(", ")})`);
-    params.push(...token.value);
+    for (const v of token.value) params.push(v);
   }
 
   return clauses;

@@ -167,6 +167,20 @@ describe("Model", () => {
     expect(errorSpy).toHaveBeenCalled();
   });
 
+  it("redacts logged params via redactParams while the thrown error keeps raw params", async () => {
+    const errorSpy = vi.fn();
+    const redactedModel = new Model(
+      "market.stocks",
+      client as any,
+      { info: vi.fn(), warn: vi.fn(), error: errorSpy },
+      { redactParams: () => ["***"] }
+    );
+    client.execute.mockRejectedValue(new Error("boom"));
+    const promise = redactedModel.find({ id: "super-secret" as any }, []);
+    await expect(promise).rejects.toMatchObject({ params: ["super-secret"] });
+    expect(errorSpy).toHaveBeenCalledWith("cassql execute error", expect.objectContaining({ params: ["***"] }));
+  });
+
   it("stream() rejects when onEnd fails", async () => {
     const fakeStream = new EventEmitter() as any;
     fakeStream.read = vi.fn().mockReturnValue(null);
@@ -221,6 +235,19 @@ describe("Model", () => {
 
   it("stream() rejects when onRead is not a function", async () => {
     await expect(model.stream({}, [], null as any)).rejects.toBeInstanceOf(CassqlValidationError);
+  });
+
+  it("stream() returns a rejected Promise (not a synchronous throw) when query building fails", () => {
+    let threwSynchronously = false;
+    let result: Promise<void> | undefined;
+    try {
+      result = model.stream({}, ["bad name"], () => {});
+    } catch {
+      threwSynchronously = true;
+    }
+    expect(threwSynchronously).toBe(false);
+    expect(result).toBeInstanceOf(Promise);
+    return expect(result).rejects.toBeInstanceOf(CassqlValidationError);
   });
 
   it("stream() rejects on driver error and logs", async () => {

@@ -5,6 +5,7 @@ import {
   CassqlUnsupportedError,
   CassqlExecutionError,
   CassqlNotAppliedError,
+  redactParamsForLogging,
 } from "../src/util/errors";
 
 describe("error classes", () => {
@@ -23,5 +24,18 @@ describe("error classes", () => {
 
     const notApplied = new CassqlNotAppliedError("lwt", { id: 1 });
     expect(notApplied.existingRow).toEqual({ id: 1 });
+  });
+});
+
+describe("redactParamsForLogging", () => {
+  it("returns params unchanged when no redactor is provided", () => {
+    const params = ["secret", 1];
+    expect(redactParamsForLogging(params)).toBe(params);
+  });
+
+  it("applies the provided redactor", () => {
+    const params = ["secret", 1];
+    const redacted = redactParamsForLogging(params, () => ["***", 1]);
+    expect(redacted).toEqual(["***", 1]);
   });
 });

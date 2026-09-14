@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-09-14
+
+### Fixed
+
+- **UPDATE:** Unknown `$`-prefixed mutation operators (e.g. typo `$apend`) now throw `CassqlUnsupportedError` instead of being written as a literal column value. Use `{ $raw: value }` when you intentionally set a literal object that looks like an operator.
+- **WHERE:** Operator lookup uses a prototype-less map so keys such as `toString` or `constructor` are rejected like other unsupported operators.
+- **WHERE:** `$in` and oversized `$token.value` lists are capped at 2000 elements with `CassqlValidationError`; bound values are appended in a loop to avoid stack overflow from spread on huge arrays.
+- **ORDER BY:** Entries missing `column` or `order` throw `CassqlValidationError` instead of being silently dropped.
+- **stream():** Query-building validation errors reject the returned Promise (method is `async`), consistent with other `Model` methods.
+- **$inc:** Rejects non-finite numbers (`NaN`, `±Infinity`).
+
+### Added
+
+- **`Model` options:** Optional `redactParams` hook masks bound values in `logger.error` output only; `CassqlExecutionError.params` remains raw for debugging.
+- **`redactParamsForLogging`:** Exported helper to apply the same masking outside `Model` if needed.
+- **README:** Warning about sensitive data in execution error params and how to use `redactParams`.
+
+### Changed
+
+- **`Model.batchExecute`:** Optional fifth argument `redactParams` for batch failure logs.
+
 ## [0.1.3] - 2026-09-12
 
 ### Changed

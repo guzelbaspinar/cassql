@@ -1,6 +1,6 @@
 import type cassandra from "cassandra-driver";
 import { assertValidTableRef } from "./util/identifiers";
-import { CassqlExecutionError, CassqlNotAppliedError, CassqlValidationError } from "./util/errors";
+import { CassqlExecutionError, CassqlNotAppliedError, CassqlValidationError, redactParamsForLogging } from "./util/errors";
 import { Conditions } from "./util/conditions";
 import { buildSelectQuery, buildCountQuery, SelectOptions, BuiltQuery } from "./query/select";
 import { buildInsertQuery, InsertOptions } from "./query/insert";
@@ -35,15 +35,28 @@ export interface FindResult<T extends Row = Row> {
  */
 export interface Statement extends BuiltQuery {}
 
+/** Options controlling the `Model` instance itself (not a single query). */
+export interface ModelOptions {
+  /**
+   * Optional redaction hook applied to `params` right before they are passed to
+   * `logger.error(...)`. Use this to mask sensitive bound values (passwords, PII, etc.)
+   * before they reach your logs / error tracker. Does not affect the raw
+   * `CassqlExecutionError.params` seen by callers — only what gets logged.
+   */
+  redactParams?: (params: unknown[]) => unknown[];
+}
+
 export class Model<T extends Row = Row> {
   protected readonly table: string;
   protected readonly client: cassandra.Client;
   protected readonly logger: Logger;
+  protected readonly redactParams?: (params: unknown[]) => unknown[];
 
-  constructor(tableName: string, client: cassandra.Client, logger: Logger = noopLogger) {
+  constructor(tableName: string, client: cassandra.Client, logger: Logger = noopLogger, options: ModelOptions = {}) {
     this.table = assertValidTableRef(tableName, "Model table name");
     this.client = client;
     this.logger = logger;
+    this.redactParams = options.redactParams;
   }
 
   // ---------------------------------------------------------------------
@@ -80,7 +93,10 @@ export class Model<T extends Row = Row> {
     return typeof row.count === "number" ? row.count : Number(row.count);
   }
 
-  stream(
+  // eslint-disable-next-line @typescript-eslint/require-await -- intentionally async so that
+  // synchronous errors thrown while building the query (e.g. an invalid column name) become a
+  // rejected Promise, consistent with every other Model method, instead of a synchronous throw.
+  async stream(
     conditions: Conditions,
     attributes: string[],
     onRead: OnReadCallback,
@@ -88,7 +104,7 @@ export class Model<T extends Row = Row> {
     options: SelectOptions & ExecOptions = {}
   ): Promise<void> {
     if (typeof onRead !== "function") {
-      return Promise.reject(new CassqlValidationError("onRead must be a function"));
+      throw new CassqlValidationError("onRead must be a function");
     }
     const { query, params } = buildSelectQuery(this.table, conditions, attributes, options);
 
@@ -113,7 +129,7 @@ export class Model<T extends Row = Row> {
       });
 
       stream.on("error", (error: Error) => {
-        this.logger.error("cassql stream error", { query, params, error });
+        this.logger.error("cassql stream error", { query, params: redactParamsForLogging(params, this.redactParams), error });
         reject(new CassqlExecutionError("Cassandra stream error", query, params, error));
       });
     });
@@ -198,7 +214,8 @@ export class Model<T extends Row = Row> {
     client: cassandra.Client,
     statements: Statement[],
     options: BatchOptions & ExecOptions = {},
-    logger: Logger = noopLogger
+    logger: Logger = noopLogger,
+    redactParams?: (params: unknown[]) => unknown[]
   ): Promise<void> {
     if (!Array.isArray(statements) || statements.length === 0) {
       throw new CassqlValidationError("batchExecute requires a non-empty array of statements");
@@ -215,7 +232,8 @@ export class Model<T extends Row = Row> {
         consistency: options.consistency,
       });
     } catch (error) {
-      logger.error("cassql batch error", { statements, error });
+      const loggedStatements = statements.map((s) => ({ query: s.query, params: redactParamsForLogging(s.params, redactParams) }));
+      logger.error("cassql batch error", { statements: loggedStatements, error });
       throw new CassqlExecutionError("Cassandra batch error", buildBatchQuery(statements, options).query, [], error);
     }
   }
@@ -256,7 +274,7 @@ export class Model<T extends Row = Row> {
       });
       return { rows: result?.rows as Row[] | undefined, pageState: result?.pageState };
     } catch (error) {
-      this.logger.error("cassql execute error", { query, params, error });
+      this.logger.error("cassql execute error", { query, params: redactParamsForLogging(params, this.redactParams), error });
       throw new CassqlExecutionError(`Cassandra query failed: ${(error as Error).message}`, query, params, error);
     }
   }

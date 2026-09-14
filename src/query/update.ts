@@ -72,8 +72,11 @@ function buildSetClause(field: string, value: UpdateValue, params: unknown[]): s
       params.push(opValue);
       return `${col} = ${col} - ?`;
     case "$inc": {
-      if (typeof opValue !== "number" && typeof opValue !== "bigint") {
-        throw new CassqlValidationError(`$inc on "${field}" requires a number or bigint`);
+      if (
+        (typeof opValue !== "number" && typeof opValue !== "bigint") ||
+        (typeof opValue === "number" && !Number.isFinite(opValue))
+      ) {
+        throw new CassqlValidationError(`$inc on "${field}" requires a finite number or bigint`);
       }
       params.push(opValue);
       return `${col} = ${col} + ?`;
@@ -91,8 +94,20 @@ function buildSetClause(field: string, value: UpdateValue, params: unknown[]): s
       params.push(index, v);
       return `${col}[?] = ?`;
     }
+    case "$raw":
+      // Explicit escape hatch: always write the operand as a literal value,
+      // even if it happens to look like an operator object itself.
+      params.push(opValue);
+      return `${col} = ?`;
     default:
-      // Unknown single key: treat the whole object as a literal value.
+      if (op.startsWith("$")) {
+        // Looks like an operator (typo'd or unsupported) rather than a literal
+        // value — fail loudly instead of silently writing the whole object as
+        // a literal (which would otherwise mask typos like `$apend`).
+        throw new CassqlUnsupportedError(`Unsupported update operator "${op}" on column "${field}"`);
+      }
+      // Not `$`-prefixed: treat the whole object as a literal value
+      // (e.g. writing a raw map/UDT value straight into the column).
       params.push(value);
       return `${col} = ?`;
   }

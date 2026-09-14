@@ -103,14 +103,25 @@ describe("buildUpdateQuery", () => {
     expect(() => buildUpdateQuery("t", [] as any, { id: 1 })).toThrow(CassqlValidationError);
   });
 
-  it("treats multi-key objects and unknown operators as literal values", () => {
+  it("treats multi-key objects and non-$ single keys as literal values", () => {
     const multi = buildUpdateQuery("t", { meta: { a: 1, b: 2 } }, { id: 1 });
     expect(multi.query).toBe("UPDATE t SET meta = ? WHERE id = ?");
     expect(multi.params).toEqual([{ a: 1, b: 2 }, 1]);
 
-    const unknown = buildUpdateQuery("t", { meta: { $unknown: 1 } }, { id: 1 });
-    expect(unknown.query).toBe("UPDATE t SET meta = ? WHERE id = ?");
-    expect(unknown.params).toEqual([{ $unknown: 1 }, 1]);
+    const nonDollar = buildUpdateQuery("t", { meta: { someKey: 1 } }, { id: 1 });
+    expect(nonDollar.query).toBe("UPDATE t SET meta = ? WHERE id = ?");
+    expect(nonDollar.params).toEqual([{ someKey: 1 }, 1]);
+  });
+
+  it("rejects unknown/typo'd $-prefixed update operators instead of silently writing them as literals", () => {
+    expect(() => buildUpdateQuery("t", { tags: { $apend: "x" } }, { id: 1 })).toThrow(CassqlUnsupportedError);
+    expect(() => buildUpdateQuery("t", { meta: { $unknown: 1 } }, { id: 1 })).toThrow(CassqlUnsupportedError);
+  });
+
+  it("supports $raw as an explicit escape hatch for literal values", () => {
+    const raw = buildUpdateQuery("t", { meta: { $raw: { a: 1 } } }, { id: 1 });
+    expect(raw.query).toBe("UPDATE t SET meta = ? WHERE id = ?");
+    expect(raw.params).toEqual([{ a: 1 }, 1]);
   });
 
   it("validates $inc and $listSetIndex operands", () => {
@@ -121,6 +132,12 @@ describe("buildUpdateQuery", () => {
     expect(() => buildUpdateQuery("t", { items: { $listSetIndex: { index: 1.5, value: 1 } } }, { id: 1 })).toThrow(
       CassqlValidationError
     );
+  });
+
+  it("rejects NaN/Infinity for $inc", () => {
+    expect(() => buildUpdateQuery("t", { c: { $inc: NaN } }, { id: 1 })).toThrow(CassqlValidationError);
+    expect(() => buildUpdateQuery("t", { c: { $inc: Infinity } }, { id: 1 })).toThrow(CassqlValidationError);
+    expect(() => buildUpdateQuery("t", { c: { $inc: -Infinity } }, { id: 1 })).toThrow(CassqlValidationError);
   });
 
   it("supports bigint $inc", () => {

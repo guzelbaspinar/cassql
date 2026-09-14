@@ -278,6 +278,23 @@ const rows = await Stock.raw(
 | `CassqlExecutionError` | Driver-level query failure (`error.query`, `error.params`, `error.cause`) |
 | `CassqlNotAppliedError` | LWT not applied (e.g. `insertOrThrow` when `IF ...` fails) |
 
+> **Sensitive data warning:** `CassqlExecutionError.params` (and the internal `stream`/
+> `batch` error logs) carry the **raw bound values** sent to Cassandra — this can include
+> passwords, PII, or other sensitive fields from your application. If you log these errors
+> as-is, or forward them to an external error tracker (Sentry, Datadog, etc.), redact
+> sensitive fields first. `Model`'s constructor accepts an optional `redactParams` option
+> that is applied only to what gets logged via its `Logger` (the error object's own
+> `.params` is intentionally left unredacted so it stays useful for debugging):
+>
+> ```ts
+> const Stock = new Model("market.stocks", cassClient.client, console, {
+>   redactParams: (params) => params.map(() => "***"),
+> });
+> ```
+>
+> `Model.batchExecute(client, statements, options, logger, redactParams)` accepts the same
+> hook as its optional fifth argument for logging batch failures.
+
 ## Module systems
 
 cassql is published with an `exports` map plus `main` / `module` / `types`, so:

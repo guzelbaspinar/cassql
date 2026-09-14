@@ -2,7 +2,7 @@ export { CassandraClient } from "./client";
 export type { Logger } from "./client";
 
 export { Model } from "./model";
-export type { Row, ExecOptions, FindResult, OnReadCallback, OnEndCallback, Statement } from "./model";
+export type { Row, ExecOptions, FindResult, OnReadCallback, OnEndCallback, Statement, ModelOptions } from "./model";
 
 export type { Conditions, ConditionValue, Primitive } from "./util/conditions";
 export type { OrderBy, OrderByClause } from "./util/orderBy";
@@ -19,6 +19,7 @@ export {
   CassqlUnsupportedError,
   CassqlExecutionError,
   CassqlNotAppliedError,
+  redactParamsForLogging,
 } from "./util/errors";
 
 // Lower-level, stateless query builders — useful for composing custom batches
