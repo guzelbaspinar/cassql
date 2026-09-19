@@ -7,12 +7,7 @@ name: Publish
 on:
   release:
     types: [published]
-  workflow_dispatch:
-    inputs:
-      debug_oidc:
-        description: Log OIDC JWT claims + verbose npm HTTP (403 diagnosis)
-        type: boolean
-        default: true
+  workflow_dispatch: {}
 
 jobs:
   publish:
@@ -20,9 +15,6 @@ jobs:
     timeout-minutes: 20
     env:
       PKG_NAME: '@guzelbaspinar/cassql'
-      # Verbose npm logs for OIDC exchange vs stage POST (support ticket evidence).
-      NPM_CONFIG_LOGLEVEL: verbose
-      DEBUG_PUBLISH: ${{ github.event_name != 'workflow_dispatch' || inputs.debug_oidc }}
     permissions:
       contents: read
       id-token: write # required for npm OIDC trusted publishing; no NPM_TOKEN secret
@@ -53,59 +45,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Diagnose publish environment
-        if: env.DEBUG_PUBLISH == 'true'
-        run: |
-          set -euo pipefail
-          mkdir -p publish-debug
-          {
-            echo "=== versions ==="
-            node --version
-            npm --version
-            echo "=== registry ==="
-            npm config get registry
-            echo "=== package.json repository ==="
-            node -p "JSON.stringify(require('./package.json').repository, null, 2)"
-            echo "=== package version ==="
-            node -p "require('./package.json').version"
-            echo "=== github context ==="
-            echo "event=${{ github.event_name }}"
-            echo "ref=${{ github.ref }}"
-            echo "workflow=${{ github.workflow }}"
-            echo "repository=${{ github.repository }}"
-            echo "=== auth env (must not leak tokens) ==="
-            if [ -n "${NODE_AUTH_TOKEN:-}" ]; then
-              echo "NODE_AUTH_TOKEN=SET (length ${#NODE_AUTH_TOKEN}) — may block OIDC"
-            else
-              echo "NODE_AUTH_TOKEN=unset (expected for trusted publishing)"
-            fi
-            if [ -n "${NPM_TOKEN:-}" ]; then
-              echo "NPM_TOKEN=SET (length ${#NPM_TOKEN})"
-            else
-              echo "NPM_TOKEN=unset"
-            fi
-          } | tee publish-debug/environment.txt
-
-      - name: Decode OIDC claims for Trusted Publisher match
-        if: env.DEBUG_PUBLISH == 'true'
-        run: |
-          set -euo pipefail
-          mkdir -p publish-debug
-          RESP="$(curl -sS -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
-            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=npm%3Aregistry.npmjs.org")"
-          echo "$RESP" | jq -r '.value // empty' > publish-debug/oidc-token.jwt.raw
-          if [ ! -s publish-debug/oidc-token.jwt.raw ]; then
-            echo "Failed to obtain OIDC ID token from GitHub"
-            echo "$RESP" | jq . > publish-debug/oidc-request-error.json
-            exit 1
-          fi
-          PAYLOAD="$(cut -d. -f2 < publish-debug/oidc-token.jwt.raw | tr '_-' '/+' | awk '{ while (length($0) % 4) $0=$0"="; print }' | base64 -d 2>/dev/null || true)"
-          echo "$PAYLOAD" | jq . > publish-debug/oidc-claims.json
-          rm -f publish-debug/oidc-token.jwt.raw
-          echo "OIDC claims (compare to npm Trusted Publisher: owner, repo, publish.yml, environment):"
-          jq '{sub, repository, repository_owner, ref, workflow_ref, job_workflow_ref, environment, aud, iss}' \
-            publish-debug/oidc-claims.json
-
       - name: Verify package.json version matches tag
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
@@ -120,7 +59,9 @@ jobs:
         id: npm_version
         run: |
           PKG_VERSION="$(node -p "require('./package.json').version")"
+          PKG_NAME="$(node -p "require('./package.json').name")"
           echo "version=$PKG_VERSION" >> "$GITHUB_OUTPUT"
+          echo "name=$PKG_NAME" >> "$GITHUB_OUTPUT"
           if npm view "${PKG_NAME}@${PKG_VERSION}" version 2>/dev/null | grep -qx "$PKG_VERSION"; then
             echo "already_published=true" >> "$GITHUB_OUTPUT"
             echo "Version ${PKG_VERSION} is already public on npm; skipping stage publish."
@@ -133,23 +74,12 @@ jobs:
       # Approve on npmjs.com or locally: npm stage approve (requires 2FA; not available via OIDC).
       - name: Stage publish to npm (OIDC, tokenless)
         if: steps.npm_version.outputs.already_published != 'true'
-        run: |
-          set -o pipefail
-          mkdir -p publish-debug
-          npm stage publish --access public 2>&1 | tee publish-debug/stage-publish.log
-
-      - name: Upload publish debug logs
-        if: always() && env.DEBUG_PUBLISH == 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: publish-debug-${{ github.run_id }}
-          path: publish-debug/
-          if-no-files-found: ignore
-          retention-days: 14
+        run: npm stage publish --access public
 
       - name: Staged release reminder
-        if: steps.npm_version.outputs.already_published != 'true' && success()
+        if: steps.npm_version.outputs.already_published != 'true'
         run: |
           PKG_VERSION="${{ steps.npm_version.outputs.version }}"
+          PKG_NAME="${{ steps.npm_version.outputs.name }}"
           echo "Staged ${PKG_NAME}@${PKG_VERSION}. Approve on https://www.npmjs.com/package/${PKG_NAME} or run locally: npm stage approve (2FA)."
           npm stage list 2>/dev/null || true
