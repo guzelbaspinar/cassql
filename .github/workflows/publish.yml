@@ -64,22 +64,37 @@ jobs:
           echo "name=$PKG_NAME" >> "$GITHUB_OUTPUT"
           if npm view "${PKG_NAME}@${PKG_VERSION}" version 2>/dev/null | grep -qx "$PKG_VERSION"; then
             echo "already_published=true" >> "$GITHUB_OUTPUT"
-            echo "Version ${PKG_VERSION} is already public on npm; skipping stage publish."
+            echo "Version ${PKG_VERSION} is already public on npm; skipping publish."
           else
             echo "already_published=false" >> "$GITHUB_OUTPUT"
-            echo "Version ${PKG_VERSION} is not public yet; will stage publish."
+            echo "Version ${PKG_VERSION} is not public yet; will try stage publish, then direct publish if needed."
           fi
 
-      # OIDC supports npm stage publish when Trusted Publisher is configured (Allow npm publish off).
-      # Approve on npmjs.com or locally: npm stage approve (requires 2FA; not available via OIDC).
-      - name: Stage publish to npm (OIDC, tokenless)
+      # Prefer npm stage publish (fetch-kit). cassql often gets 403 on stage; fallback needs Trusted Publisher "Allow npm publish".
+      - name: Publish to npm (stage first, direct OIDC fallback)
+        id: publish
         if: steps.npm_version.outputs.already_published != 'true'
-        run: npm stage publish --access public
+        run: |
+          set -e
+          if npm stage publish --access public; then
+            echo "method=stage" >> "$GITHUB_OUTPUT"
+          else
+            echo "npm stage publish failed; falling back to npm publish --provenance --access public"
+            npm publish --provenance --access public
+            echo "method=direct" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Staged release reminder
-        if: steps.npm_version.outputs.already_published != 'true'
+        if: steps.npm_version.outputs.already_published != 'true' && steps.publish.outputs.method == 'stage'
         run: |
           PKG_VERSION="${{ steps.npm_version.outputs.version }}"
           PKG_NAME="${{ steps.npm_version.outputs.name }}"
           echo "Staged ${PKG_NAME}@${PKG_VERSION}. Approve on https://www.npmjs.com/package/${PKG_NAME} or run locally: npm stage approve (2FA)."
           npm stage list 2>/dev/null || true
+
+      - name: Published to npm (direct OIDC)
+        if: steps.npm_version.outputs.already_published != 'true' && steps.publish.outputs.method == 'direct'
+        run: |
+          PKG_VERSION="${{ steps.npm_version.outputs.version }}"
+          PKG_NAME="${{ steps.npm_version.outputs.name }}"
+          echo "Published ${PKG_NAME}@${PKG_VERSION} to https://www.npmjs.com/package/${PKG_NAME}"
