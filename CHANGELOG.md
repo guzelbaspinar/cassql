@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-09-19
+
+### Changed
+
+- **Publish CI:** Removed temporary OIDC debug logging from the publish workflow; continues **npm stage publish** (fetch-kit model).
+
+### Fixed
+
+- **Dependencies:** `overrides` pin `adm-zip` to 0.6.1 (transitive via `cassandra-driver` audit advisory).
+
 ## [0.1.4] - 2026-09-14
 
 ### Fixed
