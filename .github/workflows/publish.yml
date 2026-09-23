@@ -12,7 +12,7 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     env:
       PKG_NAME: '@guzelbaspinar/cassql'
     permissions:
@@ -67,25 +67,81 @@ jobs:
             echo "Version ${PKG_VERSION} is already public on npm; skipping publish."
           else
             echo "already_published=false" >> "$GITHUB_OUTPUT"
-            echo "Version ${PKG_VERSION} is not public yet; will try stage publish, then direct publish if needed."
+            echo "Version ${PKG_VERSION} is not public yet; will run npm support diagnostics (stage + direct)."
           fi
 
-      # Prefer npm stage publish (fetch-kit). cassql often gets 403 on stage; fallback needs Trusted Publisher "Allow npm publish".
-      - name: Publish to npm (stage first, direct OIDC fallback)
-        id: publish
+      # Temporary: npm support ticket diagnostics (revert after reply sent).
+      - name: Diagnostics for npm support
         if: steps.npm_version.outputs.already_published != 'true'
         run: |
-          set -e
-          if npm stage publish --access public; then
-            echo "method=stage" >> "$GITHUB_OUTPUT"
-          else
-            echo "npm stage publish failed; falling back to npm publish --provenance --access public"
-            npm publish --provenance --access public
-            echo "method=direct" >> "$GITHUB_OUTPUT"
-          fi
+          set -x
+          node -v
+          npm -v
+          npm config get registry
+          npm config list -l
+          npm ping --registry=https://registry.npmjs.org
+          ls -la
+          test -f .npmrc && cat .npmrc || echo "no repo .npmrc"
+          env | sort | egrep -i 'NPM|NODE_AUTH_TOKEN|TOKEN|REGISTRY' || true
+
+      - name: Stage publish (diagnostic)
+        id: stage_publish
+        if: steps.npm_version.outputs.already_published != 'true'
+        continue-on-error: true
+        run: |
+          npm stage publish --access public --loglevel silly 2>&1 | tee stage-publish.log
+          exit ${PIPESTATUS[0]}
+
+      - name: Upload npm support logs
+        if: steps.npm_version.outputs.already_published != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-support-logs-${{ github.run_id }}
+          path: |
+            stage-publish.log
+          if-no-files-found: warn
+
+      - name: Upload npm debug logs
+        if: steps.npm_version.outputs.already_published != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-debug-logs-${{ github.run_id }}
+          path: ${{ env.HOME }}/.npm/_logs/
+          if-no-files-found: warn
+
+      - name: Direct publish comparison (diagnostic)
+        id: direct_publish
+        if: steps.npm_version.outputs.already_published != 'true'
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          npm publish --access public --provenance --loglevel silly 2>&1 | tee direct-publish.log
+          exit ${PIPESTATUS[0]}
+
+      - name: Upload direct publish log
+        if: steps.npm_version.outputs.already_published != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-direct-publish-log-${{ github.run_id }}
+          path: direct-publish.log
+          if-no-files-found: warn
+
+      - name: npm support diagnostic summary
+        if: steps.npm_version.outputs.already_published != 'true'
+        run: |
+          {
+            echo "## npm support diagnostics"
+            echo ""
+            echo "| Step | Result |"
+            echo "|------|--------|"
+            echo "| stage publish | ${{ steps.stage_publish.outcome }} |"
+            echo "| direct publish | ${{ steps.direct_publish.outcome }} |"
+            echo ""
+            echo "Run URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Staged release reminder
-        if: steps.npm_version.outputs.already_published != 'true' && steps.publish.outputs.method == 'stage'
+        if: steps.npm_version.outputs.already_published != 'true' && steps.stage_publish.outcome == 'success'
         run: |
           PKG_VERSION="${{ steps.npm_version.outputs.version }}"
           PKG_NAME="${{ steps.npm_version.outputs.name }}"
@@ -93,7 +149,7 @@ jobs:
           npm stage list 2>/dev/null || true
 
       - name: Published to npm (direct OIDC)
-        if: steps.npm_version.outputs.already_published != 'true' && steps.publish.outputs.method == 'direct'
+        if: steps.npm_version.outputs.already_published != 'true' && steps.direct_publish.outcome == 'success'
         run: |
           PKG_VERSION="${{ steps.npm_version.outputs.version }}"
           PKG_NAME="${{ steps.npm_version.outputs.name }}"
