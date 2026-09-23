@@ -82,7 +82,7 @@ jobs:
             echo "=== npm ping ==="; npm ping --registry=https://registry.npmjs.org
             echo "=== ls -la ==="; ls -la
             echo "=== .npmrc ==="; test -f .npmrc && cat .npmrc || echo "no repo .npmrc"
-            echo "=== env grep ==="; env | sort | egrep -i 'NPM|NODE_AUTH_TOKEN|TOKEN|REGISTRY' || true
+            echo "=== env grep ==="; env | sort | egrep -i '^(NPM_|NODE_AUTH_TOKEN|NPM_TOKEN|.*REGISTRY.*)=' | egrep -v 'ACTIONS_|GITHUB_' || true
           } | tee diagnostics.log
 
       - name: Stage publish (diagnostic)
