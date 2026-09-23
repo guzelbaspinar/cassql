@@ -1,0 +1,50 @@
+Hi Jude,
+
+Yes — the issue is still ongoing as of 2026-09-23.
+
+## Failing run
+- URL: https://github.com/guzelbaspinar/cassql/actions/runs/35907239173
+- Branch: `chore/npm-support-smoke-0.1.6` (PR #12; will merge to `main` after your review — same OIDC Trusted Publisher config/workflow file as `main`).
+- Artifact bundle attached to this run: `npm-support-bundle-35907239173` (`diagnostics.log`, `stage-publish.log`, `direct-publish.log`, `npm-debug-logs/*.log`).
+
+## npm CLI version (pinned to v11)
+- `node -v` → v22.14.0
+- `npm -v` (installed at job start via `npm i -g npm@11.15.0`) → **11.15.0**
+- `npm config get registry` → https://registry.npmjs.org
+- `npm ping --registry=https://registry.npmjs.org` → PING succeeded (npm notice PING / 200)
+
+## Sanity checks (config bleed-through)
+- `npm config list -l` → full output attached (`diagnostics.log`); only non-default entries are the expected `registry` (from `/home/runner/.npmrc`, set by our workflow) and `publishConfig.access=public` (from `package.json`). No leftover `_authToken`, no proxy/registry overrides.
+- `ls -la` → clean checkout, no stray `.npmrc` at repo root, no unexpected files. (Output attached in `diagnostics.log`.)
+- `test -f .npmrc` → **no repo `.npmrc`**
+- `env` filtered to npm/registry-related variable names → **empty** (no `NODE_AUTH_TOKEN`, no `NPM_TOKEN`, no registry override left over from another job/repo).
+
+## `npm stage publish --access public --loglevel silly`
+- **Failed**, same 403 as always: `POST https://registry.npmjs.org/-/stage/package/@guzelbaspinar%2fcassql`.
+- OIDC token exchange succeeded (`npm verbose oidc Successfully retrieved and set token`).
+- Provenance signed and published to transparency log (`https://search.sigstore.dev/?logIndex=2924597781`).
+- Full `--loglevel silly` transcript attached (`stage-publish.log`).
+- The npm debug log written by this specific command is the largest file in `npm-debug-logs/` (~4.5 KB), timestamped immediately before the 403.
+
+Excerpt (tail of stage silly log):
+```
+npm verbose oidc Successfully retrieved and set token
+npm notice stage Signed provenance statement with source and build information from GitHub Actions
+npm notice stage Provenance statement published to transparency log: https://search.sigstore.dev/?logIndex=...
+npm http fetch POST 403 https://registry.npmjs.org/-/stage/package/@guzelbaspinar%2fcassql
+npm error code E403
+npm error 403 403 Forbidden - POST https://registry.npmjs.org/-/stage/package/@guzelbaspinar%2fcassql
+```
+
+## `npm publish --access public --provenance --loglevel silly` (same job, run right after stage)
+- **Succeeded** — `@guzelbaspinar/cassql@0.1.9` published (PUT 202, provenance signed, transparency log entry recorded).
+- Full log attached (`direct-publish.log`).
+
+This is now the fourth consecutive version (0.1.6, 0.1.7, 0.1.8, 0.1.9) with the identical pattern: OIDC + provenance succeed, `stage` publish gets 403, direct `publish` from the exact same job/identity succeeds. This strongly points to a staged-publish-specific policy/path issue for `@guzelbaspinar/cassql` on the registry side, unrelated to our workflow config, npm CLI version, or environment.
+
+Interactive `npm publish` with 2FA from a workstation continues to work fine for this package, as reported originally.
+
+All requested artifacts (diagnostics.log with node/npm/registry/ping/ls -la/.npmrc/env output, stage-publish.log, direct-publish.log, and the npm debug logs) are attached to the run above.
+
+Thank you,
+[your name]
