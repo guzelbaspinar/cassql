@@ -22,7 +22,7 @@ Yes — the issue is still ongoing as of 2026-09-23.
 ## `npm stage publish --access public --loglevel silly`
 - **Failed**, same 403 as always: `POST https://registry.npmjs.org/-/stage/package/@guzelbaspinar%2fcassql`.
 - OIDC token exchange succeeded (`npm verbose oidc Successfully retrieved and set token`).
-- Provenance signed and published to transparency log (`https://search.sigstore.dev/?logIndex=2924587922`).
+- Provenance signed and published to transparency log (`https://search.sigstore.dev/?logIndex=2924597781`).
 - Full `--loglevel silly` transcript attached (`stage-publish.log`).
 - The npm debug log written by this specific command is the largest file in `npm-debug-logs/` (~4.5 KB), timestamped immediately before the 403.
 
