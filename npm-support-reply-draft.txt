@@ -2,51 +2,49 @@ Hi Jude,
 
 Yes — the issue is still ongoing as of 2026-09-23.
 
-## Smoke run (existing workflow, no extra logging)
-- URL: https://github.com/guzelbaspinar/cassql/actions/runs/35905402207
-- `npm stage publish --access public` → **E403** on `POST https://registry.npmjs.org/-/stage/package/@guzelbaspinar%2fcassql` (after successful OIDC + provenance transparency log).
-- Fallback `npm publish --provenance --access public` in the same job → **succeeded** (`@guzelbaspinar/cassql@0.1.6`).
+## Failing run
+- URL: https://github.com/guzelbaspinar/cassql/actions/runs/35907239173
+- Branch: `chore/npm-support-smoke-0.1.6` (PR #12; will merge to `main` after your review — same OIDC Trusted Publisher config/workflow file as `main`).
+- Artifact bundle attached to this run: `npm-support-bundle-35907239173` (`diagnostics.log`, `stage-publish.log`, `direct-publish.log`, `npm-debug-logs/*.log`).
 
-## Full diagnostic run (requested steps)
-- URL: https://github.com/guzelbaspinar/cassql/actions/runs/35905574602
-- Branch: `chore/npm-support-smoke-0.1.6` (PR #12; `main` merge pending).
-
-### Environment (from “Diagnostics for npm support” step)
+## npm CLI version (pinned to v11)
 - `node -v` → v22.14.0
-- `npm -v` → 11.15.0 (global install `npm@11.15.0` in workflow, same as `npm i -g npm@11`)
+- `npm -v` (installed at job start via `npm i -g npm@11.15.0`) → **11.15.0**
 - `npm config get registry` → https://registry.npmjs.org
-- `npm ping --registry=https://registry.npmjs.org` → PING OK
-- Repo `.npmrc` → **none** (`no repo .npmrc`)
-- `env | egrep -i 'NPM|NODE_AUTH_TOKEN|TOKEN|REGISTRY'` → no `NODE_AUTH_TOKEN`; only `PKG_NAME` / npm-related paths from the runner (no registry override)
+- `npm ping --registry=https://registry.npmjs.org` → PING succeeded (npm notice PING / 200)
 
-### `npm stage publish --access public --loglevel silly`
-- **Failed** with the same 403 on `POST .../-/stage/package/@guzelbaspinar%2fcassql`.
-- OIDC: `POST .../-/npm/v1/oidc/token/exchange/package/@guzelbaspinar%2fcassql` → **201**, “Successfully retrieved and set token”.
-- Provenance signed and published to transparency log (example: logIndex=2924446730).
-- Full silly transcript attached to the run as artifact `npm-support-logs-35905574602` (`stage-publish.log`).
-- npm also wrote: `/home/runner/.npm/_logs/2026-09-23T18_53_43_162Z-debug-0.log` (we could not upload `~/.npm/_logs` from Actions because `HOME` was unset in the upload path; happy to re-run with a fixed upload step if you need the raw debug file).
+## Sanity checks (config bleed-through)
+- `npm config list -l` → full output attached (`diagnostics.log`); only non-default entries are the expected `registry` (from `/home/runner/.npmrc`, set by our workflow) and `publishConfig.access=public` (from `package.json`). No leftover `_authToken`, no proxy/registry overrides.
+- `ls -la` → clean checkout, no stray `.npmrc` at repo root, no unexpected files. (Output attached in `diagnostics.log`.)
+- `test -f .npmrc` → **no repo `.npmrc`**
+- `env` filtered to npm/registry-related variable names → **empty** (no `NODE_AUTH_TOKEN`, no `NPM_TOKEN`, no registry override left over from another job/repo).
+
+## `npm stage publish --access public --loglevel silly`
+- **Failed**, same 403 as always: `POST https://registry.npmjs.org/-/stage/package/@guzelbaspinar%2fcassql`.
+- OIDC token exchange succeeded (`npm verbose oidc Successfully retrieved and set token`).
+- Provenance signed and published to transparency log (`https://search.sigstore.dev/?logIndex=2924587922`).
+- Full `--loglevel silly` transcript attached (`stage-publish.log`).
+- The npm debug log written by this specific command is the largest file in `npm-debug-logs/` (~4.5 KB), timestamped immediately before the 403.
 
 Excerpt (tail of stage silly log):
-
 ```
-npm http fetch POST 201 https://registry.npmjs.org/-/npm/v1/oidc/token/exchange/package/@guzelbaspinar%2fcassql 893ms
 npm verbose oidc Successfully retrieved and set token
 npm notice stage Signed provenance statement with source and build information from GitHub Actions
-npm notice stage Provenance statement published to transparency log: https://search.sigstore.dev/?logIndex=2924446730
-npm http fetch POST 403 https://registry.npmjs.org/-/stage/package/@guzelbaspinar%2fcassql 89ms
+npm notice stage Provenance statement published to transparency log: https://search.sigstore.dev/?logIndex=...
+npm http fetch POST 403 https://registry.npmjs.org/-/stage/package/@guzelbaspinar%2fcassql
 npm error code E403
 npm error 403 403 Forbidden - POST https://registry.npmjs.org/-/stage/package/@guzelbaspinar%2fcassql
 ```
 
-### `npm publish --access public --provenance --loglevel silly` (same job, after stage)
-- **Succeeded** (`+ @guzelbaspinar/cassql@0.1.7`, PUT 202).
-- Full log in artifact `npm-direct-publish-log-35905574602` (`direct-publish.log`).
+## `npm publish --access public --provenance --loglevel silly` (same job, run right after stage)
+- **Succeeded** — `@guzelbaspinar/cassql@0.1.9` published (PUT 202, provenance signed, transparency log entry recorded).
+- Full log attached (`direct-publish.log`).
 
-This matches the hypothesis that only the staged-publish registry path is blocked for this package; direct trusted publishing works from the same OIDC identity in the same job.
+This is now the fourth consecutive version (0.1.6, 0.1.7, 0.1.8, 0.1.9) with the identical pattern: OIDC + provenance succeed, `stage` publish gets 403, direct `publish` from the exact same job/identity succeeds. This strongly points to a staged-publish-specific policy/path issue for `@guzelbaspinar/cassql` on the registry side, unrelated to our workflow config, npm CLI version, or environment.
 
-Interactive `npm publish` with 2FA from a workstation still works for this package (as in our original ticket).
+Interactive `npm publish` with 2FA from a workstation continues to work fine for this package, as reported originally.
 
-Please let us know if you need the raw `*-debug-0.log` from the runner — we can add a copy step and re-run once.
+All requested artifacts (diagnostics.log with node/npm/registry/ping/ls -la/.npmrc/env output, stage-publish.log, direct-publish.log, and the npm debug logs) are attached to the run above.
 
 Thank you,
 [your name]

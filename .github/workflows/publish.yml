@@ -12,7 +12,7 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     env:
       PKG_NAME: '@guzelbaspinar/cassql'
     permissions:
@@ -67,83 +67,25 @@ jobs:
             echo "Version ${PKG_VERSION} is already public on npm; skipping publish."
           else
             echo "already_published=false" >> "$GITHUB_OUTPUT"
-            echo "Version ${PKG_VERSION} is not public yet; will run npm support diagnostics (stage + direct)."
+            echo "Version ${PKG_VERSION} is not public yet; will try stage publish, then direct publish if needed."
           fi
 
-      # Temporary: npm support ticket diagnostics (revert after reply sent).
-      - name: Diagnostics for npm support
+      # Prefer npm stage publish (fetch-kit). cassql often gets 403 on stage; fallback needs Trusted Publisher "Allow npm publish".
+      - name: Publish to npm (stage first, direct OIDC fallback)
+        id: publish
         if: steps.npm_version.outputs.already_published != 'true'
         run: |
-          {
-            echo "=== node -v ==="; node -v
-            echo "=== npm -v ==="; npm -v
-            echo "=== npm config get registry ==="; npm config get registry
-            echo "=== npm config list -l ==="; npm config list -l
-            echo "=== npm ping ==="; npm ping --registry=https://registry.npmjs.org
-            echo "=== ls -la ==="; ls -la
-            echo "=== .npmrc ==="; test -f .npmrc && cat .npmrc || echo "no repo .npmrc"
-            echo "=== env grep ==="; env | sort | egrep -i '^(NPM_|NODE_AUTH_TOKEN|NPM_TOKEN|.*REGISTRY.*)=' | egrep -v 'ACTIONS_|GITHUB_' || true
-          } | tee diagnostics.log
-
-      - name: Stage publish (diagnostic)
-        id: stage_publish
-        if: steps.npm_version.outputs.already_published != 'true'
-        continue-on-error: true
-        run: |
-          set -o pipefail
-          npm stage publish --access public --loglevel silly 2>&1 | tee stage-publish.log
-          exit ${PIPESTATUS[0]}
-
-      - name: Copy npm debug logs to workspace
-        if: steps.npm_version.outputs.already_published != 'true'
-        run: |
-          mkdir -p npm-debug-logs
-          cp -v "$HOME"/.npm/_logs/*.log npm-debug-logs/ 2>/dev/null || echo "No debug logs found in $HOME/.npm/_logs/"
-          ls -la npm-debug-logs || true
-
-      - name: Direct publish comparison (diagnostic)
-        id: direct_publish
-        if: steps.npm_version.outputs.already_published != 'true'
-        continue-on-error: true
-        run: |
-          set -o pipefail
-          npm publish --access public --provenance --loglevel silly 2>&1 | tee direct-publish.log
-          exit ${PIPESTATUS[0]}
-
-      - name: Copy npm debug logs to workspace (after direct publish)
-        if: steps.npm_version.outputs.already_published != 'true'
-        run: |
-          cp -v "$HOME"/.npm/_logs/*.log npm-debug-logs/ 2>/dev/null || echo "No additional debug logs found."
-          ls -la npm-debug-logs || true
-
-      - name: Upload npm support diagnostic bundle
-        if: steps.npm_version.outputs.already_published != 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: npm-support-bundle-${{ github.run_id }}
-          path: |
-            diagnostics.log
-            stage-publish.log
-            direct-publish.log
-            npm-debug-logs/
-          if-no-files-found: warn
-
-      - name: npm support diagnostic summary
-        if: steps.npm_version.outputs.already_published != 'true'
-        run: |
-          {
-            echo "## npm support diagnostics"
-            echo ""
-            echo "| Step | Result |"
-            echo "|------|--------|"
-            echo "| stage publish | ${{ steps.stage_publish.outcome }} |"
-            echo "| direct publish | ${{ steps.direct_publish.outcome }} |"
-            echo ""
-            echo "Run URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          } >> "$GITHUB_STEP_SUMMARY"
+          set -e
+          if npm stage publish --access public; then
+            echo "method=stage" >> "$GITHUB_OUTPUT"
+          else
+            echo "npm stage publish failed; falling back to npm publish --provenance --access public"
+            npm publish --provenance --access public
+            echo "method=direct" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Staged release reminder
-        if: steps.npm_version.outputs.already_published != 'true' && steps.stage_publish.outcome == 'success'
+        if: steps.npm_version.outputs.already_published != 'true' && steps.publish.outputs.method == 'stage'
         run: |
           PKG_VERSION="${{ steps.npm_version.outputs.version }}"
           PKG_NAME="${{ steps.npm_version.outputs.name }}"
@@ -151,7 +93,7 @@ jobs:
           npm stage list 2>/dev/null || true
 
       - name: Published to npm (direct OIDC)
-        if: steps.npm_version.outputs.already_published != 'true' && steps.direct_publish.outcome == 'success'
+        if: steps.npm_version.outputs.already_published != 'true' && steps.publish.outputs.method == 'direct'
         run: |
           PKG_VERSION="${{ steps.npm_version.outputs.version }}"
           PKG_NAME="${{ steps.npm_version.outputs.name }}"
