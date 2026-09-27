@@ -5,7 +5,5 @@ coverage/
 .DS_Store
 .env
 
-# Local npm support / ticket drafts (do not commit)
-npm-support-reply-draft.txt
-support.answer.txt
-npm-support-ticket.md
+# Local notes (code review, npm support drafts) — not for the repo
+bulgular/
