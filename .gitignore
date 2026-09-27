@@ -6,4 +6,4 @@ coverage/
 .env
 
 # Local notes (code review, npm support drafts) — not for the repo
-bulgular/
+local-notes/
