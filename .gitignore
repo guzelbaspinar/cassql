@@ -4,3 +4,6 @@ coverage/
 *.log
 .DS_Store
 .env
+
+# Local notes (code review, npm support drafts) — not for the repo
+local-notes/

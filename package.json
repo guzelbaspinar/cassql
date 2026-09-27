@@ -1,6 +1,6 @@
 {
   "name": "@guzelbaspinar/cassql",
-  "version": "0.1.5",
+  "version": "0.1.9",
   "description": "Secure, type-friendly, ORM-style Cassandra (CQL) query library for CJS, ESM, and TypeScript.",
   "keywords": [
     "cassandra",

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-09-23
+
+### Changed
+
+- No user-facing library changes. Patch versions 0.1.6–0.1.9 were published to npm during Trusted Publishing (OIDC) troubleshooting; package contents match 0.1.5 aside from the version field.
+
 ## [0.1.5] - 2026-09-19
 
 ### Changed
