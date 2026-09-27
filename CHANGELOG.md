@@ -11,25 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Release bump for final npm support diagnostic re-run (env grep scoped to avoid leaking GitHub OIDC token).
-
-## [0.1.8] - 2026-09-23
-
-### Changed
-
-- Release bump for npm support diagnostic re-run (debug log capture fix).
-
-## [0.1.7] - 2026-09-23
-
-### Changed
-
-- Release bump for npm support full diagnostic workflow run.
-
-## [0.1.6] - 2026-09-23
-
-### Changed
-
-- Release bump for npm Trusted Publishing smoke test (support ticket).
+- No user-facing library changes. Patch versions 0.1.6–0.1.9 were published to npm during Trusted Publishing (OIDC) troubleshooting; package contents match 0.1.5 aside from the version field.
 
 ## [0.1.5] - 2026-09-19
 
