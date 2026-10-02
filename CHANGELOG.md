@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.10] - 2026-10-02
+
+### Fixed
+
+- `Model.batchExecute` with `type: "counter"` now sends `logged: false` to the driver (counter batches cannot be LOGGED).
+- Driver value types (`types.LocalDate`, `Uuid`, `Long`, ...) and other class instances are now bound as plain values in `WHERE` conditions instead of throwing `CassqlUnsupportedError`.
+- List `$append` / `$prepend` accept a single scalar element (wrapped into an array automatically).
+
+### Docs
+
+- `$token` compares by partitioner hash, not by raw key order: `TOKEN(id) > TOKEN(2)` does not mean `id > 2`. Page using the token of the last-seen row.
+
 ## [0.1.9] - 2026-09-23
 
 ### Changed

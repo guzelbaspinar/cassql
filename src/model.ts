@@ -222,13 +222,12 @@ export class Model<T extends Row = Row> {
     }
     const queries = statements.map((s) => ({ query: s.query, params: s.params }));
     try {
-      // Note: COUNTER batches need no special driver flag — Cassandra infers a counter
-      // batch from the fact that every statement inside it is a counter UPDATE.
-      // `logged: false` for UNLOGGED batches disables cross-partition atomicity for
-      // better throughput; LOGGED (the default) is atomic but slower.
+      // COUNTER batches cannot be LOGGED, so the driver must be told `logged: false`
+      // for both "unlogged" and "counter". `logged: false` disables cross-partition
+      // atomicity for better throughput; LOGGED (the default) is atomic but slower.
       await client.batch(queries, {
         prepare: true,
-        logged: options.type !== "unlogged",
+        logged: options.type === undefined || options.type === "logged",
         consistency: options.consistency,
       });
     } catch (error) {

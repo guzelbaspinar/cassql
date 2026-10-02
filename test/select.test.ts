@@ -118,3 +118,17 @@ describe("buildCountQuery", () => {
     expect(query).toBe("SELECT COUNT(*) FROM stocks ALLOW FILTERING");
   });
 });
+
+describe("driver value types in conditions", () => {
+  it("binds class instances (e.g. LocalDate) as plain values", async () => {
+    const { types } = await import("cassandra-driver");
+    const d = types.LocalDate.fromString("2024-03-15");
+    const { query, params } = buildSelectQuery("stocks", { trade_date: d }, []);
+    expect(query).toBe("SELECT * FROM stocks WHERE trade_date = ?");
+    expect(params).toEqual([d]);
+  });
+
+  it("still rejects unknown operators on plain objects", () => {
+    expect(() => buildSelectQuery("stocks", { a: { date: 1 } as any }, [])).toThrow(CassqlUnsupportedError);
+  });
+});

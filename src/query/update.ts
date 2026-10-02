@@ -39,6 +39,13 @@ function isPlainMutationObject(value: unknown): value is Record<string, unknown>
   return value !== null && typeof value === "object" && !Array.isArray(value) && !(value instanceof Date) && !Buffer.isBuffer(value);
 }
 
+/** A single scalar list element is wrapped into an array; arrays/Sets/Maps pass through. */
+function wrapScalar(v: unknown): unknown {
+  if (v === null || v === undefined || Array.isArray(v) || v instanceof Set || v instanceof Map) return v;
+  if (typeof v === "object" && (Object.getPrototypeOf(v) === Object.prototype || Object.getPrototypeOf(v) === null)) return v;
+  return [v];
+}
+
 function buildSetClause(field: string, value: UpdateValue, params: unknown[]): string {
   const col = column(field, "update column");
 
@@ -60,10 +67,10 @@ function buildSetClause(field: string, value: UpdateValue, params: unknown[]): s
 
   switch (op) {
     case "$append":
-      params.push(opValue);
+      params.push(wrapScalar(opValue));
       return `${col} = ${col} + ?`;
     case "$prepend":
-      params.push(opValue);
+      params.push(wrapScalar(opValue));
       return `${col} = ? + ${col}`;
     case "$add":
       params.push(opValue);

@@ -299,6 +299,15 @@ describe("Model", () => {
     expect(client.batch).toHaveBeenCalledWith(expect.any(Array), expect.objectContaining({ logged: false }));
   });
 
+  it("Model.batchExecute() sends logged:false for counter batches, logged:true by default", async () => {
+    client.batch.mockResolvedValue({});
+    const stmt = model.buildInsert({ id: 1 });
+    await Model.batchExecute(client as any, [stmt], { type: "counter" });
+    expect(client.batch).toHaveBeenLastCalledWith(expect.any(Array), expect.objectContaining({ logged: false }));
+    await Model.batchExecute(client as any, [stmt]);
+    expect(client.batch).toHaveBeenLastCalledWith(expect.any(Array), expect.objectContaining({ logged: true }));
+  });
+
   it("Model.batchExecute() with default logger on failure", async () => {
     client.batch.mockRejectedValue(new Error("batch fail"));
     const stmt = model.buildInsert({ id: 1 });

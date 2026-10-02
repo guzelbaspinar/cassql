@@ -46,7 +46,7 @@ describe("buildUpdateQuery", () => {
   it("supports collection append/prepend/add/remove", () => {
     const append = buildUpdateQuery("t", { tags: { $append: "x" } }, { id: 1 });
     expect(append.query).toBe("UPDATE t SET tags = tags + ? WHERE id = ?");
-    expect(append.params).toEqual(["x", 1]);
+    expect(append.params).toEqual([["x"], 1]);
 
     const prepend = buildUpdateQuery("t", { tags: { $prepend: "x" } }, { id: 1 });
     expect(prepend.query).toBe("UPDATE t SET tags = ? + tags WHERE id = ?");
@@ -217,5 +217,15 @@ describe("buildBatchQuery", () => {
 
   it("rejects an empty batch", () => {
     expect(() => buildBatchQuery([])).toThrow(CassqlValidationError);
+  });
+});
+
+describe("list $append/$prepend scalar wrapping", () => {
+  it("wraps a single scalar into an array", () => {
+    expect(buildUpdateQuery("t", { tags: { $append: "b" } }, { id: 1 }).params[0]).toEqual(["b"]);
+    expect(buildUpdateQuery("t", { tags: { $prepend: "b" } }, { id: 1 }).params[0]).toEqual(["b"]);
+  });
+  it("keeps arrays as-is", () => {
+    expect(buildUpdateQuery("t", { tags: { $append: ["a", "b"] } }, { id: 1 }).params[0]).toEqual(["a", "b"]);
   });
 });

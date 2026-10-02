@@ -121,7 +121,7 @@ await Stock.find({ "a OR 1=1; --": 1 });                  // ❌ throws CassqlVa
 | `$in` | `{ id: { $in: [1, 2, 3] } }` | `id IN (?, ?, ?)` |
 | `$contains` (collection) | `{ tags: { $contains: 'x' } }` | `tags CONTAINS ?` |
 | `$containsKey` (map) | `{ meta: { $containsKey: 'k' } }` | `meta CONTAINS KEY ?` |
-| `$token` (manual paging) | `{ $token: { columns: ['id'], op: '$gt', value: [42] } }` | `TOKEN(id) > TOKEN(?)` |
+| `$token` (manual paging) | `{ $token: { columns: ['id'], op: '$gt', value: [42] } }` | `TOKEN(id) > TOKEN(?)` (hash order, not key order; pass the last-seen key to continue a scan) |
 
 Multiple column conditions are combined with `AND`. **`$or` is not supported** (not in CQL).
 
