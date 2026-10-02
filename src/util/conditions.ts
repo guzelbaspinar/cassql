@@ -6,7 +6,24 @@ import { CassqlUnsupportedError, CassqlValidationError } from "./errors";
 // elements onto `params` via a spread, which can otherwise overflow the JS call stack.
 const MAX_IN_LIST_SIZE = 2000;
 
-export type Primitive = string | number | boolean | Date | Buffer | bigint | null;
+import type { types } from "cassandra-driver";
+
+export type Primitive =
+  | string
+  | number
+  | boolean
+  | Date
+  | Buffer
+  | bigint
+  | null
+  | types.LocalDate
+  | types.LocalTime
+  | types.Uuid
+  | types.TimeUuid
+  | types.InetAddress
+  | types.Long
+  | types.BigDecimal
+  | types.Integer;
 
 export type ConditionValue =
   | Primitive
@@ -52,6 +69,18 @@ Object.assign(SIMPLE_OPERATORS, {
 });
 
 /**
+ * A plain (Object.prototype / null-prototype) object is treated as an operator object. Driver value types
+ * (LocalDate, Uuid, Long, InetAddress, ...) and arrays are class instances and are
+ * bound as plain values.
+ */
+function isOperatorObject(v: unknown): boolean {
+  if (v === null || typeof v !== "object" || Array.isArray(v) || v instanceof Date || Buffer.isBuffer(v)) return false;
+  const proto = Object.getPrototypeOf(v);
+  if (proto !== Object.prototype && proto !== null) return false;
+  return true;
+}
+
+/**
  * Builds a list of CQL predicate fragments (e.g. `["price > ?", "symbol = ?"]`) from a
  * mongo-like conditions object, pushing bound values into `params` in the same order the
  * fragments are emitted. No user-controlled value is ever concatenated into the returned
@@ -71,7 +100,7 @@ export function buildConditionClauses(conditions: Conditions, params: unknown[])
     if (field === "$token") continue; // handled separately below
     const col = column(field, "condition column");
 
-    if (condition !== null && typeof condition === "object" && !(condition instanceof Date) && !Buffer.isBuffer(condition)) {
+    if (isOperatorObject(condition)) {
       const entries = Object.entries(condition as Record<string, unknown>);
       if (entries.length === 0) {
         throw new CassqlValidationError(`Condition object for "${field}" must have at least one operator`);
