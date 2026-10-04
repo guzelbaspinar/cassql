@@ -140,7 +140,7 @@ describe("buildUpdateQuery", () => {
     expect(() => buildUpdateQuery("t", { c: { $inc: -Infinity } }, { id: 1 })).toThrow(CassqlValidationError);
   });
 
-  it("supports bigint $inc", () => {
+  it("supports bigint $inc in query params (coerced to Long at execute time)", () => {
     const { params } = buildUpdateQuery("t", { hits: { $inc: 5n } }, { id: 1 });
     expect(params[0]).toBe(5n);
   });

@@ -8,6 +8,7 @@ import { buildUpdateQuery, UpdateFields, UpdateOptions } from "./query/update";
 import { buildDeleteQuery, DeleteOptions } from "./query/delete";
 import { buildBatchQuery, BatchOptions } from "./query/batch";
 import { noopLogger, type Logger } from "./client";
+import { coerceBindParams } from "./util/bind";
 
 export type Row = Record<string, unknown>;
 export type OnReadCallback = (row: Row) => void | Promise<void>;
@@ -108,8 +109,11 @@ export class Model<T extends Row = Row> {
     }
     const { query, params } = buildSelectQuery(this.table, conditions, attributes, options);
 
+    const boundParams = coerceBindParams(params);
+
     return new Promise((resolve, reject) => {
-      const stream = this.client.stream(query, params, {
+      const inFlight: Promise<void>[] = [];
+      const stream = this.client.stream(query, boundParams, {
         prepare: true,
         autoPage: options.autoPage ?? true,
         fetchSize: options.fetchSize,
@@ -120,12 +124,19 @@ export class Model<T extends Row = Row> {
         let row: unknown;
         // eslint-disable-next-line no-cond-assign
         while ((row = this.read())) {
-          Promise.resolve(onRead(row as Row)).catch((err) => stream.emit("error", err));
+          inFlight.push(
+            Promise.resolve(onRead(row as Row)).catch((err) => {
+              stream.emit("error", err);
+              return Promise.reject(err);
+            })
+          );
         }
       });
 
       stream.on("end", () => {
-        Promise.resolve(onEnd()).then(resolve, reject);
+        Promise.all(inFlight)
+          .then(() => Promise.resolve(onEnd()))
+          .then(resolve, reject);
       });
 
       stream.on("error", (error: Error) => {
@@ -220,7 +231,7 @@ export class Model<T extends Row = Row> {
     if (!Array.isArray(statements) || statements.length === 0) {
       throw new CassqlValidationError("batchExecute requires a non-empty array of statements");
     }
-    const queries = statements.map((s) => ({ query: s.query, params: s.params }));
+    const queries = statements.map((s) => ({ query: s.query, params: coerceBindParams(s.params) }));
     try {
       // COUNTER batches cannot be LOGGED, so the driver must be told `logged: false`
       // for both "unlogged" and "counter". `logged: false` disables cross-partition
@@ -263,13 +274,15 @@ export class Model<T extends Row = Row> {
     options: ExecOptions = {}
   ): Promise<{ rows: Row[] | undefined; pageState?: string }> {
     try {
-      const result = await this.client.execute(query, params, {
+      const boundParams = coerceBindParams(params);
+      const result = await this.client.execute(query, boundParams, {
         prepare: true,
         consistency: options.consistency,
         isIdempotent: options.isIdempotent,
         fetchSize: options.fetchSize,
         pageState: options.pageState,
         readTimeout: options.readTimeout,
+        autoPage: options.autoPage,
       });
       return { rows: result?.rows as Row[] | undefined, pageState: result?.pageState };
     } catch (error) {

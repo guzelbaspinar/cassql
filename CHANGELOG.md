@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.11] - 2026-10-04
+
+### Fixed
+
+- `Model.execute` (used by `find`, `raw`, mutations, etc.) now forwards `ExecOptions.autoPage` to the driver.
+- `Model.stream` waits for all `onRead` callbacks (including async) to finish before calling `onEnd` and resolving.
+- Native JavaScript `bigint` bind values are coerced to `types.Long` before `execute`, `stream`, and `batchExecute`.
+
 ## [0.1.10] - 2026-10-02
 
 ### Fixed

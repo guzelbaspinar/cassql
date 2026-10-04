@@ -85,6 +85,21 @@ describe("Model", () => {
     expect(await model.findPage({}, [])).toEqual({ rows: [], pageState: "next" });
   });
 
+  it("find() forwards autoPage to client.execute", async () => {
+    client.execute.mockResolvedValue({ rows: [] });
+    await model.find({}, [], { fetchSize: 3, autoPage: true });
+    expect(client.execute).toHaveBeenCalledWith(expect.any(String), expect.any(Array), expect.objectContaining({ autoPage: true }));
+  });
+
+  it("insert() coerces bigint bind values to Long", async () => {
+    const { types } = await import("cassandra-driver");
+    client.execute.mockResolvedValue({});
+    await model.insert({ id: 1, big: 9007199254740993n });
+    const passedParams = client.execute.mock.calls[0][1] as unknown[];
+    expect(passedParams[1]).toBeInstanceOf(types.Long);
+    expect(String(passedParams[1])).toBe("9007199254740993");
+  });
+
   it("insert() performs a plain insert", async () => {
     client.execute.mockResolvedValue({});
     const result = await model.insert({ symbol: "GARAN", price: 1 });
@@ -214,6 +229,36 @@ describe("Model", () => {
 
     await promise;
     expect(rows).toEqual([{ symbol: "GARAN" }]);
+  });
+
+  it("stream() waits for async onRead before onEnd resolves", async () => {
+    const fakeStream = new EventEmitter() as any;
+    let reads = 0;
+    fakeStream.read = vi.fn().mockImplementation(() => {
+      reads += 1;
+      return reads <= 2 ? { id: reads } : null;
+    });
+    client.stream.mockReturnValue(fakeStream);
+
+    let completedReads = 0;
+    let nAtEnd = -1;
+    const promise = model.stream(
+      {},
+      [],
+      async () => {
+        await new Promise((r) => setTimeout(r, 20));
+        completedReads += 1;
+      },
+      () => {
+        nAtEnd = completedReads;
+      },
+      { autoPage: false }
+    );
+    fakeStream.emit("readable");
+    fakeStream.emit("end");
+    await promise;
+    expect(nAtEnd).toBe(2);
+    expect(completedReads).toBe(2);
   });
 
   it("stream() reads multiple rows in one readable event", async () => {
