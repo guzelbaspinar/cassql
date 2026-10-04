@@ -272,16 +272,35 @@ export class Model<T extends Row = Row> {
   ): Promise<{ rows: Row[] | undefined; pageState?: string }> {
     try {
       const boundParams = coerceBindParams(params);
-      const result = await this.client.execute(query, boundParams, {
-        prepare: true,
+      const driverOpts = {
+        prepare: true as const,
         consistency: options.consistency,
         isIdempotent: options.isIdempotent,
         fetchSize: options.fetchSize,
-        pageState: options.pageState,
         readTimeout: options.readTimeout,
-        autoPage: options.autoPage,
-      });
-      return { rows: result?.rows as Row[] | undefined, pageState: result?.pageState };
+      };
+
+      if (!options.autoPage) {
+        const result = await this.client.execute(query, boundParams, {
+          ...driverOpts,
+          pageState: options.pageState,
+        });
+        return { rows: result?.rows as Row[] | undefined, pageState: result?.pageState };
+      }
+
+      const rows: Row[] = [];
+      let pageState: string | Buffer | undefined = options.pageState;
+      for (;;) {
+        const result = await this.client.execute(query, boundParams, {
+          ...driverOpts,
+          pageState,
+        });
+        if (result?.rows?.length) rows.push(...(result.rows as Row[]));
+        if (!result?.pageState) {
+          return { rows };
+        }
+        pageState = result.pageState;
+      }
     } catch (error) {
       this.logger.error("cassql execute error", { query, params: redactParamsForLogging(params, this.redactParams), error });
       throw new CassqlExecutionError(`Cassandra query failed: ${(error as Error).message}`, query, params, error);

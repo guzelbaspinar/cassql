@@ -167,7 +167,7 @@ const page1 = await Stock.findPage({}, [], { fetchSize: 50 });
 const page2 = await Stock.findPage({}, [], { fetchSize: 50, pageState: page1.pageState });
 ```
 
-To load every page automatically in one call, pass `autoPage: true` with `fetchSize` on `find` or `raw` (same driver option as `stream`, which defaults `autoPage` to `true`).
+To load every page automatically in one call, pass `autoPage: true` with `fetchSize` on `find` or `raw` (cassql follows `pageState` until done). `stream` uses the driver’s built-in paging and defaults `autoPage` to `true`.
 
 ### `count(conditions, options?)`
 
