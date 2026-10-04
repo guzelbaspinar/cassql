@@ -124,12 +124,9 @@ export class Model<T extends Row = Row> {
         let row: unknown;
         // eslint-disable-next-line no-cond-assign
         while ((row = this.read())) {
-          inFlight.push(
-            Promise.resolve(onRead(row as Row)).catch((err) => {
-              stream.emit("error", err);
-              return Promise.reject(err);
-            })
-          );
+          const readTask = Promise.resolve(onRead(row as Row));
+          readTask.catch((err) => stream.emit("error", err));
+          inFlight.push(readTask);
         }
       });
 
