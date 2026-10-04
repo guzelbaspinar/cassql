@@ -85,10 +85,14 @@ describe("Model", () => {
     expect(await model.findPage({}, [])).toEqual({ rows: [], pageState: "next" });
   });
 
-  it("find() forwards autoPage to client.execute", async () => {
-    client.execute.mockResolvedValue({ rows: [] });
-    await model.find({}, [], { fetchSize: 3, autoPage: true });
-    expect(client.execute).toHaveBeenCalledWith(expect.any(String), expect.any(Array), expect.objectContaining({ autoPage: true }));
+  it("find() with autoPage fetches until pageState is exhausted", async () => {
+    client.execute
+      .mockResolvedValueOnce({ rows: [{ id: 1 }], pageState: "p2" })
+      .mockResolvedValueOnce({ rows: [{ id: 2 }] });
+    const rows = await model.find({}, ["id"], { fetchSize: 1, autoPage: true });
+    expect(rows).toEqual([{ id: 1 }, { id: 2 }]);
+    expect(client.execute).toHaveBeenCalledTimes(2);
+    expect(client.execute.mock.calls[1][2]).toMatchObject({ pageState: "p2" });
   });
 
   it("insert() coerces bigint bind values to Long", async () => {

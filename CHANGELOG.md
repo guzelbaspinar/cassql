@@ -7,11 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.12] - 2026-10-04
+
+### Fixed
+
+- `ExecOptions.autoPage` on `find` / `raw` / mutations now pages by following `pageState` until exhausted (`client.execute` does not auto-page; only `stream` / `eachRow` do in the driver).
+
 ## [0.1.11] - 2026-10-04
 
 ### Fixed
 
-- `Model.execute` (used by `find`, `raw`, mutations, etc.) now forwards `ExecOptions.autoPage` to the driver.
+- `Model.execute` forwarded `ExecOptions.autoPage` to the driver (insufficient alone for `execute`; use 0.1.12).
 - `Model.stream` waits for all `onRead` callbacks (including async) to finish before calling `onEnd` and resolving.
 - Native JavaScript `bigint` bind values are coerced to `types.Long` before `execute`, `stream`, and `batchExecute`.
 
