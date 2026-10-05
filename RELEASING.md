@@ -44,7 +44,7 @@ Repository **Rules → Protect main** (ruleset):
 
 Classic branch protection was removed in favor of this ruleset.
 
-## Routine release (0.1.1+)
+## Routine release (1.0.0+)
 
 1. Bump `version` in `package.json` and `package-lock.json`.
 2. Update `CHANGELOG.md`.
