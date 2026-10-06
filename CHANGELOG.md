@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-05
+
+### Changed
+
+- First **stable** release. The **0.x** series covered the development / pre-release period; **1.0.0** has the same behavior as **0.1.12** (no breaking API changes).
+
 ## [0.1.12] - 2026-10-04
 
 ### Fixed
